@@ -1,0 +1,23 @@
+{{- if .Values.kb_ingress.enabled }}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ .Values.kb_ingress.name }}
+  {{- with .Values.kb_ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app: {{ .Values.kb_ingress.name }}
+  #namespace: monitoring
+spec:
+  rules:
+  - host: {{ .Values.kb_ingress.host }}
+    http:
+      paths:
+      - backend:
+          serviceName: {{ .Values.kb_ingress.serviceName }}
+          servicePort: {{ .Values.kb_ingress.servicePort }}
+        path: {{ .Values.kb_ingress.path }}
+        pathType: {{ .Values.kb_ingress.pathType }}
+{{- end}}

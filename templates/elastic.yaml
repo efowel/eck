@@ -1,0 +1,142 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: {{ include "efk.fullname" . }}
+spec:
+  version: {{ .Values.master.version }}
+  nodeSets:
+  {{- if .Values.master.ha }}
+    {{- $root := . -}}
+    {{- range .Values.master.cluster }}
+
+###############  {{ .name }}  ###############
+  - name: {{ .name }}
+    config:
+      node.attr.zone: {{ .az }}
+      node.data: false
+      node.master: true
+    count: 1
+    podTemplate:
+      spec:
+        containers:
+        - name: elasticsearch # Do not change this name or it wont work, trust me
+          # specify resource limits and requests
+          resources:
+            requests:
+              memory: {{ $root.Values.master.resources.requests.memory | default "1Gi" | quote }}
+              cpu: {{ $root.Values.master.resources.requests.cpu | default "300m" | quote }}
+            limits:
+              memory: {{ $root.Values.master.resources.limits.memory | default "4Gi"| quote }}
+              cpu: {{ $root.Values.master.resources.limits.cpu | default "1"| quote }}
+          {{- with $root.Values.master.env }}
+          env:
+            {{- toYaml . | nindent 12}}
+          {{- end }}
+          readinessProbe:
+            exec:
+              command:
+              - bash
+              - -c
+              - /mnt/elastic-internal/scripts/readiness-probe-script.sh
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 12
+            successThreshold: 1
+            timeoutSeconds: 12
+        initContainers:
+        - command:
+          - sh
+          - -c
+          - sysctl -w vm.max_map_count=262144
+          name: sysctl
+          securityContext:
+            privileged: true
+      {{- if $root.Values.master.dedicated -}}
+        {{- with $root.Values.master.nodeSelector }}
+        nodeSelector:
+          {{- toYaml . | nindent 10}}
+        {{- end }}
+        {{- with $root.Values.master.tolerations }}
+        tolerations:
+          {{- toYaml . | nindent 10}}
+        {{- end }}
+      {{- end }}
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data # Do not change this name unless you set up a volume mount for the data path
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ $root.Values.master.storage }}
+        storageClassName: {{ $root.Values.master.storageClassName }}
+    {{- end }}
+  {{- end }}
+
+
+#WORKING
+################  DATA-NODES  ################
+  - name: {{ .Values.data.name }}
+    config:
+      {{- if .Values.master.ha -}}
+      node.roles: ["data"]
+      {{- else}}
+      node.roles: ["master","data"]
+      {{- end }}
+    count: {{ .Values.data.count }}
+    podTemplate:
+      spec:
+        containers:
+        - name: elasticsearch # Do not change this name or it wont work, trust me
+          # specify resource limits and requests
+          resources:
+            requests:
+              memory: {{ .Values.data.resources.requests.memory | default "1Gi" | quote }}
+              cpu: {{ .Values.data.resources.requests.cpu | default "300m" | quote }}
+            limits:
+              memory: {{ .Values.data.resources.limits.memory | default "4Gi"| quote }}
+              cpu: {{ .Values.data.resources.limits.cpu | default "1"| quote }}
+          {{- with .Values.data.env }}
+          env:
+            {{- toYaml . | nindent 12}}
+          {{- end }}
+          readinessProbe:
+            exec:
+              command:
+              - bash
+              - -c
+              - /mnt/elastic-internal/scripts/readiness-probe-script.sh
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 12
+            successThreshold: 1
+            timeoutSeconds: 12
+        initContainers:
+        - command:
+          - sh
+          - -c
+          - sysctl -w vm.max_map_count=262144
+          name: sysctl
+          securityContext:
+            privileged: true
+      {{- if .Values.data.dedicated -}}
+        {{- with .Values.data.nodeSelector }}
+        nodeSelector:
+          {{- toYaml . | nindent 10}}
+        {{- end }}
+        {{- with .Values.data.tolerations }}
+        tolerations:
+          {{- toYaml . | nindent 10}}
+        {{- end }}
+      {{- end }}
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data # Do not change this name unless you set up a volume mount for the data path
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.data.storage }}
+        storageClassName: {{ .Values.data.storageClassName }}

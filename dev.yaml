@@ -1,0 +1,105 @@
+
+######################## ES Master ########################
+master:
+  ha: no # Set 'ha' (high avialability) to true: for 3 master nodes per zone
+           # Set to bolean false: to merge master and data in one pod
+  dedicated: {} #if master has dedicated nodes, set to true and add 'nodeSelector' % 'tolerations' value
+  cluster:
+    - name: master-zone-1
+      az: 1
+    - name: master-zone-2
+      az: 2
+    - name: master-zone-3
+      az: 3 
+  version: "7.15.0"
+  resources:
+    requests:
+      cpu: 300m
+      memory: 250Mi
+    limits:
+      cpu: 1
+      memory: 4Gi
+  env:
+  - name: ES_JAVA_OPTS
+    value: "-Xms2g -Xmx2g"
+  # - name: READINESS_PROBE_TIMEOUT
+  #   value: "10"
+
+  # nodeSelector:
+  #   monitoring: "data"
+  # tolerations:
+  # - effect: "NoSchedule"
+  #   operator: "Equal"
+  #   key: "monitoring"
+  #   value: "data"
+  storage: 5Gi
+  storageClassName: default
+
+######################## ES Node ########################
+data:
+  dedicated: no 
+  name: data-node
+  count: 1
+  resources:
+    requests:
+      cpu: 300m
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 4Gi
+  env:
+  - name: ES_JAVA_OPTS
+    value: "-Xms2g -Xmx2g"
+  # - name: READINESS_PROBE_TIMEOUT
+  #   value: "10"
+
+  nodeSelector:
+    monitoring: "data"
+  tolerations:
+  - effect: "NoSchedule"
+    operator: "Equal"
+    key: "monitoring"
+    value: "data"
+  storage: 10Gi
+  storageClassName: default
+
+######################## Kibana ########################
+kibana:
+  dedicated: {} #if kibana has dedicated nodes, set to true and add 'nodeSelector' % 'tolerations' value
+  count: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2
+      memory: 2.5Gi
+  env:
+  - name: NODE_OPTIONS
+    value: "--max-old-space-size=2048"
+  # nodeSelector:
+  #   monitoring: "data"
+  # tolerations:
+  # - effect: "NoSchedule"
+  #   operator: "Equal"
+  #   key: "monitoring"
+  #   value: "data"
+kb_ingress:
+  enabled: true
+  name: kibana
+  host: 
+  serviceName: efk-kb-http
+  servicePort: 5601
+  annotations:
+    kubernetes.io/ingress.class: nginx
+
+######################## Fluentd ########################
+fluentd:
+  enabled: true
+  namespace: monitoring
+  es_host: efk-es-http
+  es_user: elastic
+  es_pass: 92Xcm1L2ox5X225t9me8Rbmf
+  #exclude: ["/var/log/containers/kube*.log","/var/log/containers/fluent-es*.log"]
+
+
