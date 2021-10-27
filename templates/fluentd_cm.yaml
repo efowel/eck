@@ -99,6 +99,6 @@ data:
       scheme https
       ssl_verify false
       user elastic
-      password H5xfhB1L351x51tq7fxI3r2j
+      password password
       logstash_format true
     </match>#
